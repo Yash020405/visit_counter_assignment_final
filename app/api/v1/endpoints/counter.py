@@ -6,8 +6,10 @@ from ....schemas.counter import VisitCount
 router = APIRouter()
 
 # Dependency to get VisitCounterService instance
+counter_service_instance = VisitCounterService()
+
 def get_visit_counter_service():
-    return VisitCounterService()
+    return counter_service_instance
 
 @router.post("/visits/{page_id}")
 async def record_visit(
@@ -29,6 +31,6 @@ async def get_visits(
     """Get visit count for a website"""
     try:
         count = await counter_service.get_visit_count(page_id)
-        return VisitCount(visits=count, served_via="in_memory")
+        return VisitCount(visits=count, served_via="redis")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
