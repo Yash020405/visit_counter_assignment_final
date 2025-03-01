@@ -1,5 +1,5 @@
 import redis
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Tuple
 from .consistent_hash import ConsistentHash
 from .config import settings
 
@@ -18,18 +18,17 @@ class RedisManager:
             self.connection_pools[node] = redis.ConnectionPool.from_url(node)
             self.redis_clients[node] = redis.Redis(connection_pool=self.connection_pools[node], decode_responses=True)
 
-    async def get_connection(self, key: str) -> redis.Redis:
+    async def get_connection(self, key: str) -> Tuple[redis.Redis, str]:
         """
-        Get Redis connection for the given key using consistent hashing
-        
-        Args:
-            key: The key to determine which Redis node to use
-            
+        Get Redis connection for the given key using consistent hashing.
+
         Returns:
-            Redis client for the appropriate node
+            - Redis client for the node.
         """
         node = self.consistent_hash.get_node(key)
-        return self.redis_clients[node]
+        port = node.split(":")[-1]
+        return self.redis_clients[node], f"redis_{port}"
+
 
     async def increment(self, key: str, amount: int = 1) -> int:
         """
@@ -43,15 +42,14 @@ class RedisManager:
             New value of the counter
         """
         try:
-            redis_client = await self.get_connection(key)
+            redis_client, _ = await self.get_connection(key)
             new_value = redis_client.incrby(key, amount)
             return new_value
         except redis.RedisError as e:
             print(f"Redis Increment Error: {e}")
             return 0
 
-
-    async def get(self, key: str) -> Optional[int]:
+    async def get(self, key: str) -> Tuple[Optional[int], str]:
         """
         Get value for a key from Redis
         
@@ -59,12 +57,12 @@ class RedisManager:
             key: The key to get
             
         Returns:
-            Value of the key or None if not found
+            Tuple containing the value of the key or None if not found, and the Redis node name
         """
         try:
-            redis_client = await self.get_connection(key)
+            redis_client, node = await self.get_connection(key)
             value = redis_client.get(key)
-            return int(value) if value is not None else 0
+            return (int(value) if value is not None else 0), node
         except redis.RedisError as e:
             print(f"Redis Get Error: {e}")
-            return 0
+            return 0, "unknown"
