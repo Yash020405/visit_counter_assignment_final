@@ -30,7 +30,7 @@ async def get_visits(
 ):
     """Get visit count for a website"""
     try:
-        count = await counter_service.get_visit_count(page_id)
-        return VisitCount(visits=count, served_via="redis")
+        data = await counter_service.get_visit_count(page_id)
+        return VisitCount(visits=data["visits"], served_via=data["served_via"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
